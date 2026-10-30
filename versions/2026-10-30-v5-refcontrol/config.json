@@ -1,0 +1,8 @@
+{
+  "port": 8125,
+  "skill_dir": "../skill/flux2-klein-portrait",
+  "pose_dir": "../data/pose-atlas",
+  "costume_dir": "../data/costume-gallery",
+  "concurrency": 1,
+  "engine": "FLUX.2 KLEIN"
+}

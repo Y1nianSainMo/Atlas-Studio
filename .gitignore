@@ -1,0 +1,14 @@
+# 素材库（2.1GB 线稿/服装图，不适合传 Git 仓库）
+data/
+
+# 运行时产物（输出、临时文件、深度图、骨架图、上传）
+app/work/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 系统文件
+Thumbs.db
+.DS_Store

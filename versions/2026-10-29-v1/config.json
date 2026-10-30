@@ -1,0 +1,8 @@
+{
+  "port": 8125,
+  "skill_dir": "C:/Users/SainM/.workbuddy/skills/flux2-klein-portrait",
+  "pose_dir": "E:/RuiC-PoseAtlas",
+  "costume_dir": "E:/ai-costume-gallery",
+  "concurrency": 1,
+  "engine": "FLUX.2 KLEIN"
+}
