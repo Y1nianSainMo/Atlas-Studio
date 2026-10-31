@@ -1,0 +1,1342 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atlas Studio · 拖放生图台</title>
+<style>
+:root{
+  --bg:#0c0e12; --bg2:#12151b; --panel:#161a21; --panel2:#1c212a; --line:#252b35; --line2:#333b48;
+  --tx:#e8ecf3; --tx2:#9aa4b5; --tx3:#66707f; --ac:#7ea6ff; --ac2:#a8c2ff; --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+  --r:14px; --sh:0 12px 34px rgba(0,0,0,.45);
+  --f:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;height:100vh;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:var(--f);-webkit-font-smoothing:antialiased}
+body{background:radial-gradient(1000px 420px at 12% -8%,#1a2233 0,transparent 62%),radial-gradient(800px 380px at 100% 0,#221a2b 0,transparent 58%),var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#2b323d;border-radius:9px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* banner */
+#banner{display:none;padding:9px 16px;background:#3a1d1f;border-bottom:1px solid #6b2b2b;color:#ffd7d7;font-size:12.5px;line-height:1.5;flex:0 0 auto}
+#banner.on{display:block}
+#banner b{color:#fff}
+
+/* header */
+header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(12,14,18,.86);backdrop-filter:blur(10px);z-index:30}
+.brand{font-size:16px;font-weight:700;letter-spacing:.02em}
+.brand small{display:block;font-size:11px;font-weight:400;color:var(--tx3);letter-spacing:.14em;margin-top:2px}
+.pill{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--tx2);padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--err);box-shadow:0 0 0 3px rgba(248,113,113,.15)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(74,222,128,.15)}
+
+/* layout */
+main{display:grid;grid-template-columns:424px minmax(0,1fr);gap:0;flex:1 1 auto;min-height:0;overflow:hidden}
+aside{border-right:1px solid var(--line);padding:16px 16px 26px;overflow-y:auto;min-height:0;background:linear-gradient(180deg,rgba(18,21,27,.6),transparent 240px)}
+.lib{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+
+/* slots */
+.slots{display:flex;flex-direction:column;gap:10px}
+.slot{position:relative;display:flex;gap:11px;align-items:flex-start;padding:10px 9px;border:1px dashed var(--line2);border-radius:var(--r);background:var(--panel);transition:.16s;min-height:88px}
+.slot:hover{border-color:#46536a}
+.slot.over{border-color:var(--ac);background:#18202f;box-shadow:inset 0 0 0 1px rgba(126,166,255,.35)}
+.slot.filled{border-style:solid;border-color:var(--line2)}
+.thumb{width:58px;height:82px;flex:0 0 58px;border-radius:9px;background:#0b0d11 center/cover no-repeat;border:1px solid var(--line)}
+.slot .meta{min-width:0;flex:1;padding-right:16px}
+.slot .k{font-size:11px;letter-spacing:.16em;color:var(--tx3);text-transform:uppercase}
+.slot .v{font-size:13px;margin-top:3px;color:var(--tx);word-break:break-all;line-height:1.35}
+.slot .hint{font-size:11.5px;color:var(--tx3);margin-top:4px;line-height:1.4}
+.slot .x{position:absolute;top:7px;right:7px;width:21px;height:21px;border-radius:7px;background:#0f1218;border:1px solid var(--line2);color:var(--tx2);font-size:12px;display:none;place-items:center;z-index:2}
+.slot.filled .x{display:grid}
+.slot .x:hover{color:#fff;border-color:#5a6478}
+/* 机位：固定五等分，绝不换行 */
+.anglerow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-top:8px}
+.ang{font-size:10.5px;padding:4px 0;border-radius:6px;border:1px solid var(--line2);color:var(--tx2);background:#10141a;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.ang:hover{border-color:#46536a;color:var(--tx2)}
+.ang.on{color:#dbe6ff;border-color:#4a6ba8;background:#1b2740}
+.anglerow .ang:only-child{grid-column:span 1}
+
+/* body picker */
+.bodies{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.bd{padding:7px 3px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--tx2);text-align:center;line-height:1.2;transition:.14s}
+.bd em{display:block;font-style:normal;font-size:10px;color:var(--tx3);margin-top:3px}
+.bd:hover{border-color:#46536a}
+.bd.on{border-color:#4a6ba8;background:#1b2740;color:#dbe6ff;box-shadow:inset 0 0 0 1px rgba(126,166,255,.2)}
+.bd.on em{color:#93abd9}
+
+/* segmented */
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.sg{padding:8px 0;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--tx2);line-height:1.2}
+.sg em{display:block;font-style:normal;font-size:10px;color:var(--tx3);margin-top:3px}
+.sg:hover{border-color:#46536a}
+.sg.on{border-color:#4a6ba8;background:#1b2740;color:#dbe6ff}
+.sg.on em{color:#93abd9}
+
+/* face picker */
+.faces{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.fd{padding:8px 0;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--tx2);line-height:1.2;white-space:nowrap;overflow:hidden}
+.fd:hover{border-color:#46536a}
+.fd.on{border-color:#4a6ba8;background:#1b2740;color:#dbe6ff;box-shadow:inset 0 0 0 1px rgba(126,166,255,.2)}
+.slimhint{display:flex;justify-content:space-between;font-size:10px;color:var(--tx3);margin-top:1px}
+.slimhint span:first-child{color:#8fa8d8}
+
+/* 4-way segmented (身高 / 腿身比) */
+.seg4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.seg4 button{padding:7px 0;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:11.5px;color:var(--tx2);white-space:nowrap;overflow:hidden;line-height:1.2}
+.seg4 button:hover{border-color:#46536a}
+.seg4 button.on{border-color:#4a6ba8;background:#1b2740;color:#dbe6ff;box-shadow:inset 0 0 0 1px rgba(126,166,255,.2)}
+
+/* 三围 */
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.trio>div{display:flex;align-items:center;gap:5px;min-width:0}
+.trio span{font-size:11px;color:var(--tx3);flex:0 0 auto}
+.trio input{flex:1;min-width:0}
+
+/* form */
+.sec{margin-top:18px}
+.sec h3{font-size:12px;letter-spacing:.14em;color:var(--tx3);font-weight:600;margin:0 0 8px;text-transform:uppercase}
+textarea{width:100%;min-height:88px;resize:vertical;padding:10px 11px;border-radius:11px;border:1px solid var(--line);background:var(--panel);line-height:1.5;font-size:13px}
+textarea:focus,input:focus,select:focus{outline:none;border-color:#456;background:#191e26}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+label.f{display:block;font-size:11px;color:var(--tx3);margin:0 0 4px 2px;letter-spacing:.08em}
+select,input[type=number]{width:100%;padding:8px 9px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12.5px}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--tx2);margin-top:10px;cursor:pointer;user-select:none}
+.chk input{accent-color:var(--ac);width:15px;height:15px}
+.go{width:100%;margin-top:16px;padding:13px;border-radius:12px;background:linear-gradient(180deg,#5b82f0,#3f63d8);color:#fff;font-weight:650;font-size:14px;letter-spacing:.03em;box-shadow:0 8px 22px rgba(70,110,230,.28)}
+.go:hover{filter:brightness(1.08)}
+.go:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.go.sub{background:linear-gradient(180deg,#2c3442,#232a35);box-shadow:none;font-weight:500;padding:10px;margin-top:8px;font-size:13px}
+.state{display:none;margin-top:12px;padding:11px 12px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-size:12.5px;color:var(--tx2)}
+.state.on{display:block}
+.state .bar{height:3px;border-radius:3px;background:#232a35;overflow:hidden;margin-top:8px}
+.state .bar i{display:block;height:100%;width:35%;background:linear-gradient(90deg,var(--ac),var(--ac2));animation:sw 1.15s infinite ease-in-out}
+@keyframes sw{0%{margin-left:-35%}100%{margin-left:100%}}
+.err{color:var(--err);white-space:pre-wrap;word-break:break-word}
+.results{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.results figure{margin:0;position:relative;border-radius:11px;overflow:hidden;border:1px solid var(--line);background:#0a0c10;cursor:zoom-in}
+.results img{display:block;width:100%;height:auto}
+.results figcaption{position:absolute;left:0;right:0;bottom:0;font-size:10.5px;padding:14px 8px 5px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#cfd6e4}
+.results .ph{display:grid;place-items:center;aspect-ratio:3/4;color:var(--tx3);font-size:12px}
+
+/* library */
+.libbar{display:flex;gap:10px;align-items:center;padding:14px 20px 10px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.tabs button{padding:7px 14px;border-radius:8px;font-size:13px;color:var(--tx2)}
+.tabs button.on{background:#232b38;color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+.search{flex:1;min-width:180px;position:relative}
+.search input{width:100%;padding:9px 12px 9px 32px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:13px}
+.search:before{content:"⌕";position:absolute;left:11px;top:7px;font-size:15px;color:var(--tx3)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 20px 4px;scrollbar-width:thin}
+.chips::-webkit-scrollbar{height:6px}
+.chip{flex:0 0 auto;font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);color:var(--tx2);background:var(--panel)}
+.chip.on{border-color:#4a6ba8;background:#1b2740;color:#dbe6ff}
+.grid{flex:1;overflow-y:auto;padding:12px 20px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));grid-auto-rows:max-content;gap:10px;align-content:start}
+.card{position:relative;border-radius:11px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);cursor:grab;transition:.14s;align-self:start;min-height:0}
+.card:hover{transform:translateY(-2px);border-color:#46536a;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.card img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:#0a0c10}
+.card .noimg{display:grid;place-items:center;aspect-ratio:3/4;padding:8px;text-align:center;font-size:10px;line-height:1.5;color:#8a5a5a;background:#140e11;white-space:pre-line;word-break:break-all}
+.card .cap{padding:6px 7px 7px;font-size:11px;color:var(--tx2);line-height:1.35;height:44px;overflow:hidden}
+.card .cap b{color:#cdd6e6;font-weight:600}
+.card .badge{position:absolute;top:6px;left:6px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(8,10,14,.8);color:#b9c4d4;border:1px solid var(--line2)}
+.loadmore{grid-column:1/-1;padding:12px;border-radius:11px;border:1px solid var(--line);color:var(--tx2);font-size:13px;background:var(--panel)}
+.loadmore:hover{border-color:#46536a}
+.empty{grid-column:1/-1;padding:40px;text-align:center;color:var(--tx3);font-size:13px}
+
+/* lightbox */
+.lb{position:fixed;inset:0;background:rgba(6,8,11,.88);backdrop-filter:blur(6px);display:none;z-index:60;padding:26px;overflow:auto}
+.lb.on{display:flex;align-items:center;justify-content:center;gap:20px}
+.lb img{max-width:min(68vw,720px);max-height:80vh;border-radius:12px;box-shadow:var(--sh);flex:0 1 auto;min-width:0}
+.lb .side{flex:0 0 270px;max-width:270px;max-height:80vh;overflow-y:auto}
+.lb .side .t{font-size:14px;font-weight:600;margin-bottom:6px}
+.lb .side .d{font-size:12px;color:var(--tx2);line-height:1.55;margin-bottom:14px;word-break:break-word;white-space:pre-line}
+.lb .side button{display:block;width:100%;margin-bottom:8px;padding:10px;border-radius:10px;border:1px solid var(--line2);background:var(--panel);font-size:13px}
+.lb .side button:hover{border-color:#4a6ba8;background:#1b2740}
+.lbangles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:14px}
+.lbangles .ang{font-size:11.5px;padding:7px 0}
+/* ---------- 单张 / 批量 ---------- */
+.modebar{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:13px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.mb{padding:9px 0;border-radius:9px;font-size:13px;color:var(--tx2);font-weight:600;transition:.14s}
+.mb:hover{color:var(--tx)}
+.mb.on{background:#26303f;color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.06) inset}
+.mb em{display:block;font-style:normal;font-size:10px;font-weight:400;color:var(--tx3);margin-top:2px}
+.mb.on em{color:#93abd9}
+
+.bmode{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.bm{padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--tx2);line-height:1.25}
+.bm em{display:block;font-style:normal;font-size:10px;color:var(--tx3);margin-top:3px}
+.bm:hover{border-color:#46536a}
+.bm.on{border-color:#4a6ba8;background:#1b2740;color:#dbe6ff;box-shadow:inset 0 0 0 1px rgba(126,166,255,.2)}
+.bm.on em{color:#93abd9}
+
+.bqhead{display:flex;justify-content:space-between;align-items:baseline;margin:13px 0 6px}
+.bqhead span:first-child{font-size:11px;letter-spacing:.14em;color:var(--tx3);text-transform:uppercase}
+.bqhead span:last-child{font-size:11.5px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.bqlist{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:max-content;gap:5px;min-height:70px;padding:6px;border:1px dashed var(--line2);border-radius:11px;background:#0d1015;align-content:start;transition:.15s}
+.bqlist.over{border-color:var(--ac);background:#151d2b;box-shadow:inset 0 0 0 1px rgba(126,166,255,.3)}
+.bqi{position:relative;border-radius:7px;overflow:hidden;border:1px solid var(--line);background:#0a0c10;aspect-ratio:3/4}
+.bqi img{width:100%;height:100%;object-fit:cover;display:block}
+.bqi i{position:absolute;left:0;right:0;bottom:0;font-style:normal;font-size:8px;padding:7px 2px 2px;background:linear-gradient(transparent,rgba(0,0,0,.88));color:#cfd8e8;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bqi .rm{position:absolute;top:2px;right:2px;width:15px;height:15px;border-radius:5px;background:rgba(8,10,14,.85);border:1px solid var(--line2);color:#c9d2e2;font-size:9px;display:grid;place-items:center;line-height:1;padding:0}
+.bqi .rm:hover{background:#7a2b2b;border-color:#a04a4a;color:#fff}
+.bqempty{grid-column:1/-1;place-self:center;color:var(--tx3);font-size:11.5px;padding:18px 8px;text-align:center;line-height:1.55}
+.bqhint{font-size:10.5px;color:var(--tx3);margin-top:7px;line-height:1.55}
+.bqfoot{display:flex;align-items:center;justify-content:space-between;margin-top:9px;gap:8px}
+.bqfoot .chk{margin:0;font-size:11.5px}
+.mini{font-size:11.5px;padding:5px 11px;border-radius:8px;border:1px solid var(--line2);color:var(--tx2);background:var(--panel);flex:0 0 auto}
+.mini:hover{border-color:#46536a;color:var(--tx)}
+
+/* ---------- 参数预设 ---------- */
+.presetbar{display:grid;grid-template-columns:1fr auto auto;gap:6px;margin-bottom:11px}
+.presetbar select{min-width:0;text-overflow:ellipsis}
+.presetbar button{padding:8px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--tx2);white-space:nowrap}
+.presetbar button:hover{border-color:#4a6ba8;color:#dbe6ff;background:#1b2740}
+
+/* ---------- 历史抽屉 ---------- */
+.histbtn{font-size:12px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--tx2)}
+.histbtn:hover{border-color:#46536a;color:var(--tx)}
+
+/* 访问地址面板 */
+.addrbtn{font-size:12px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--tx2);display:flex;align-items:center;gap:7px}
+.addrbtn:hover{border-color:#46536a;color:var(--tx)}
+.addrbtn .ico{font-size:13px;line-height:1}
+.addrpop{position:fixed;top:62px;right:20px;width:min(430px,92vw);background:rgba(14,17,22,.985);backdrop-filter:blur(12px);border:1px solid var(--line2);border-radius:13px;padding:15px;z-index:80;display:none;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.addrpop.on{display:block}
+.addrpop h4{margin:0 0 4px;font-size:13px}
+.addrpop p{margin:0 0 11px;font-size:11.5px;color:var(--tx3);line-height:1.6}
+.addrlist{display:flex;flex-direction:column;gap:7px}
+.addrrow{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
+.addrrow .u{flex:1;min-width:0;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--tx);word-break:break-all}
+.addrrow .u small{display:block;font-family:system-ui,sans-serif;color:var(--tx3);font-size:10.5px;margin-top:3px}
+.addrrow button{font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--tx2);white-space:nowrap}
+.addrrow button:hover{border-color:var(--ac);color:var(--ac2)}
+.addrrow.cur{border-color:#2c4a7c;background:#141b28}
+.addrfoot{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);font-size:11px;color:var(--tx3);line-height:1.7}
+.addrfoot code{background:var(--panel2);padding:2px 6px;border-radius:5px;font-size:10.5px;color:var(--tx2);word-break:break-all}
+.drawer{position:fixed;inset:0 0 0 auto;width:min(760px,94vw);background:rgba(10,12,16,.98);backdrop-filter:blur(8px);border-left:1px solid var(--line2);display:none;flex-direction:column;z-index:70;box-shadow:-24px 0 70px rgba(0,0,0,.55)}
+.drawer.on{display:flex}
+.dhead{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.dhead b{font-size:14px}
+.dhead span{font-size:12px;color:var(--tx3)}
+.dhead button:last-child{margin-left:auto;font-size:14px;color:var(--tx2);width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel)}
+.dhead button:last-child:hover{color:#fff;border-color:#5a6478}
+.dgrid{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));grid-auto-rows:max-content;gap:10px;align-content:start}
+.hcard{border-radius:11px;overflow:hidden;border:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column}
+.hcard img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:#0a0c10;cursor:zoom-in}
+.hcap{padding:6px 8px 5px;font-size:10.5px;color:var(--tx2);line-height:1.45;word-break:break-all;flex:1}
+.hcap b{display:block;color:#cdd6e6;font-size:11px;margin-bottom:3px;font-variant-numeric:tabular-nums}
+.hbtns{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 7px 8px}
+.hbtns button{font-size:10.5px;padding:5px 0;border-radius:6px;border:1px solid var(--line2);color:var(--tx2);background:#10141a}
+.hbtns button:hover{border-color:#4a6ba8;background:#1b2740;color:#dbe6ff}
+
+/* 素材卡上的"加入队列" */
+.card .add{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:7px;background:rgba(8,10,14,.86);border:1px solid var(--line2);color:#cfd8e8;font-size:13px;display:none;place-items:center;z-index:3;line-height:1;padding:0}
+.card .add:hover{background:#2a4468;border-color:#4a6ba8;color:#fff}
+body.batch .card .add{display:grid}
+
+/* 批量结果 */
+.bresults{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.bresults figure{margin:0;position:relative;border-radius:11px;overflow:hidden;border:1px solid var(--line);background:#0a0c10}
+.bresults img{display:block;width:100%;height:auto}
+.bresults figcaption{position:absolute;left:0;right:0;bottom:0;font-size:10px;padding:14px 7px 5px;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#cfd6e4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bresults .pend{display:grid;place-items:center;aspect-ratio:3/4;color:var(--tx3);font-size:11px;background:#0d1015;text-align:center;padding:8px;line-height:1.5}
+.bresults .bad{color:var(--err)}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#1d2430;border:1px solid var(--line2);color:#dbe3f1;padding:10px 16px;border-radius:11px;font-size:13px;opacity:0;transition:.22s;z-index:90;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:980px){
+  body{height:auto;min-height:100vh;overflow:auto}
+  main{grid-template-columns:1fr;min-height:0;overflow:visible}
+  aside{border-right:none;border-bottom:1px solid var(--line);overflow:visible}
+  .lib{height:auto;overflow:visible}
+  .grid{max-height:none;overflow:visible}
+  .lb.on{flex-direction:column;gap:14px}
+  .lb img{max-width:92vw;max-height:58vh}
+  .lb .side{flex:0 0 auto;max-width:92vw;max-height:none}
+}
+</style>
+</head>
+<body>
+
+<div id="banner"></div>
+
+<header>
+  <div class="brand">Atlas Studio<small id="engine">POSE · COSTUME → FLUX.2 KLEIN</small></div>
+  <button class="histbtn" id="histbtn">历史出图</button>
+  <button class="addrbtn" id="addrbtn" title="查看 / 复制访问地址"><span class="ico">🔗</span><span id="addrbtn-txt">访问地址</span></button>
+  <div class="pill" id="status" style="margin-left:0"><i class="dot"></i><span>检测中</span></div>
+</header>
+
+<div class="addrpop" id="addrpop">
+  <h4>访问地址</h4>
+  <p>本机打开用第一个地址；要让同一局域网的别的设备打开，用下面的局域网地址。</p>
+  <div class="addrlist" id="addrlist"></div>
+  <div class="addrfoot" id="addrfoot"></div>
+</div>
+
+<main>
+  <aside>
+    <div class="modebar" id="modebar">
+      <button class="mb on" data-m="single">单张<em>一次一张</em></button>
+      <button class="mb" data-m="batch">批量<em>一次最多 20 张</em></button>
+    </div>
+
+    <div id="batchpanel" style="display:none">
+      <h3 style="font-size:12px;letter-spacing:.14em;color:var(--tx3);font-weight:600;margin:0 0 8px;text-transform:uppercase">批量方式</h3>
+      <div class="bmode" id="bmode">
+        <button class="bm on" data-v="costume">固定姿势<em>换 20 套服装</em></button>
+        <button class="bm" data-v="pose">固定服装<em>换 20 个姿态</em></button>
+      </div>
+      <div class="bqhead">
+        <span id="bqtitle">服装队列</span>
+        <span id="bqcount">0 / 20</span>
+      </div>
+      <div class="bqlist" id="bqlist"></div>
+      <div class="bqhint" id="bqhint">在右侧素材库点卡片右上角的 ＋ 加入队列，也可以直接把卡片拖进来</div>
+      <div class="bqfoot">
+        <button class="mini" id="bqclear">清空队列</button>
+        <label class="chk"><input type="checkbox" id="bsameSeed"> 每张用同一颗种子</label>
+      </div>
+    </div>
+
+    <div class="slots" style="margin-top:14px">
+      <div class="slot" id="slot-pose" data-type="pose">
+        <div class="thumb" id="th-pose"></div>
+        <div class="meta">
+          <div class="k" id="k-pose">01 · 姿势</div>
+          <div class="v" id="v-pose">拖入或点击选一个姿态</div>
+          <div class="hint" id="h-pose">线稿人台只取姿态与机位</div>
+          <div class="anglerow" id="a-pose"></div>
+        </div>
+        <button class="x" data-clear="pose">✕</button>
+      </div>
+
+      <div class="slot" id="slot-costume" data-type="costume">
+        <div class="thumb" id="th-costume"></div>
+        <div class="meta">
+          <div class="k" id="k-costume">02 · 服装</div>
+          <div class="v" id="v-costume">拖入或点击选一套造型</div>
+          <div class="hint" id="h-costume">整身服装 + 鞋包配饰</div>
+        </div>
+        <button class="x" data-clear="costume">✕</button>
+      </div>
+
+      <div class="slot" id="slot-identity" data-type="identity">
+        <div class="thumb" id="th-identity"></div>
+        <div class="meta">
+          <div class="k">03 · 人脸（可选）</div>
+          <div class="v" id="v-identity">拖入一张真人照锁定长相</div>
+          <div class="hint" id="h-identity">不给就按提示词自由生成</div>
+        </div>
+        <button class="x" data-clear="identity">✕</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>描述</h3>
+      <textarea id="prompt" placeholder="补一句场景 / 光感 / 风格，可留空"></textarea>
+    </div>
+
+    <div class="sec">
+      <h3>参数</h3>
+      <div class="presetbar">
+        <select id="presetSel"><option value="">— 参数预设 —</option></select>
+        <button id="presetSave" title="把当前所有参数存成一个预设">保存</button>
+        <button id="presetDel" title="删除选中的预设">删除</button>
+      </div>
+      <div class="row" style="grid-template-columns:1fr;margin-top:0">
+        <div>
+          <label class="f">姿态控制</label>
+          <div class="seg" id="posemode">
+            <button class="sg on" data-v="skeleton">骨架<em>最准</em></button>
+            <button class="sg" data-v="both">线稿+深度<em>较准</em></button>
+            <button class="sg" data-v="depth">仅深度<em>较快</em></button>
+            <button class="sg" data-v="line">仅线稿<em>最快</em></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns:1fr;margin-top:8px">
+        <label class="chk" style="display:flex;align-items:center;gap:7px;cursor:pointer">
+          <input type="checkbox" id="halfBody">
+          <span>半身参考图（腰上取景）</span>
+        </label>
+        <div style="margin-top:4px;color:var(--tx3);font-size:10.5px;line-height:1.5">
+          姿势 / 服装图只取上半身。系统也会自动识别，勾选可强制开启；开启后「腿身比」自动失效。
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns:1fr;margin-top:10px">
+        <div>
+          <label class="f">面孔</label>
+          <div class="faces" id="faces">
+            <button class="fd on" data-v="cn">中国</button>
+            <button class="fd" data-v="kr">韩国</button>
+            <button class="fd" data-v="jp">日本</button>
+            <button class="fd" data-v="us">美国</button>
+            <button class="fd" data-v="mix">混血</button>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="grid-template-columns:1fr;margin-top:10px">
+        <div>
+          <label class="f">身材</label>
+          <div class="bodies" id="bodies">
+            <button class="bd" data-v="ultra">超瘦<em>纸片人</em></button>
+            <button class="bd on" data-v="xxthin">极瘦<em>骨感·默认</em></button>
+            <button class="bd" data-v="slim">纤细<em>网红</em></button>
+            <button class="bd" data-v="model">模特<em>高瘦长腿</em></button>
+            <button class="bd" data-v="normal">标准<em>匀称</em></button>
+            <button class="bd" data-v="curvy">丰满<em>沙漏曲线</em></button>
+            <button class="bd" data-v="plus">丰腴<em>偏胖</em></button>
+          </div>
+          <label class="f" style="margin-top:9px">胖瘦微调 <b id="slimv" style="color:var(--tx2)">75%</b></label>
+          <input type="range" id="slim" min="60" max="112" step="1" value="75">
+          <div class="slimhint"><span>← 更瘦</span><span>更胖 →</span></div>
+
+          <label class="f" style="margin-top:11px">身高</label>
+          <div class="seg4" id="height">
+            <button class="hgt" data-v="petite">娇小 155</button>
+            <button class="hgt on" data-v="normal">标准 163</button>
+            <button class="hgt" data-v="tall">高挑 170</button>
+            <button class="hgt" data-v="super">超模 178</button>
+          </div>
+
+          <label class="f" style="margin-top:11px">腿身比</label>
+          <div class="seg4" id="legratio">
+            <button class="lg" data-v="short">短腿</button>
+            <button class="lg on" data-v="normal">标准</button>
+            <button class="lg" data-v="long">长腿</button>
+            <button class="lg" data-v="verylong">超长腿</button>
+          </div>
+
+          <label class="f" style="margin-top:11px">三围 <span style="color:var(--tx3);font-size:9.5px;letter-spacing:0">胸 / 腰 / 臀（右大）</span></label>
+          <div class="trio">
+            <div><span>胸</span><input type="range" id="bust" min="0" max="100" step="1" value="72"></div>
+            <div><span>腰</span><input type="range" id="waist" min="0" max="100" step="1" value="75"></div>
+            <div><span>臀</span><input type="range" id="hip" min="0" max="100" step="1" value="62"></div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label class="f">比例</label>
+          <select id="size">
+            <option value="832x1216">2:3 · 832×1216</option>
+            <option value="768x1024">3:4 · 768×1024</option>
+            <option value="768x1344">9:16 · 768×1344</option>
+            <option value="1024x1024">1:1 · 1024×1024</option>
+            <option value="864x1536">9:16 · 864×1536</option>
+          </select>
+        </div>
+        <div>
+          <label class="f">种子</label>
+          <input type="number" id="seed" value="1" min="1">
+        </div>
+      </div>
+      <label class="chk"><input type="checkbox" id="doSwap" checked> 换脸精修（有真人照时第二遍锁脸）</label>
+      <div class="row" style="margin-top:10px">
+        <div>
+          <label class="f">LoRA 强度 <b id="swv" style="color:var(--tx2)">0.95</b></label>
+          <input type="range" id="sw" min="0.70" max="1.05" step="0.01" value="0.95">
+        </div>
+        <div>
+          <label class="f">步数</label>
+          <input type="number" id="steps" value="10" min="4" max="16">
+        </div>
+      </div>
+    </div>
+
+    <button class="go" id="go">生成</button>
+    <button class="go sub" id="redo">换个种子再来一张</button>
+
+    <div class="state" id="state"></div>
+    <div class="results" id="results"></div>
+  </aside>
+
+  <section class="lib">
+    <div class="libbar">
+      <div class="tabs">
+        <button class="on" data-tab="pose">姿态库 <span style="color:var(--tx3)">288</span></button>
+        <button data-tab="costume">衣装库 <span style="color:var(--tx3)">1407</span></button>
+      </div>
+      <div class="search"><input id="q" placeholder="搜索：站姿 / 坐姿 / denim jacket / P019……"></div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+
+<div class="lb" id="lb">
+  <img id="lbimg" alt="">
+  <div class="side">
+    <div class="t" id="lbt"></div>
+    <div class="d" id="lbd"></div>
+    <div class="lbangles" id="lbang"></div>
+    <button id="lbpose">用作姿势参考</button>
+    <button id="lbcostume">用作服装参考</button>
+  </div>
+</div>
+<div class="drawer" id="hist">
+  <div class="dhead">
+    <b>历史出图</b><span id="histCount"></span>
+    <button id="histClose">✕</button>
+  </div>
+  <div class="dgrid" id="histgrid"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (t,c) => { const n=document.createElement(t); if(c) n.className=c; return n; };
+
+/* ---------- 后端地址 ----------
+   页面可能被双击用 file:// 打开、或从预览面板打开，此时相对路径 /api、/a 全部失效：
+   框架能看见，数据和图片却一片空白。统一用 U() 兜底，任何打开方式都能取到资源。
+
+   服务端的地址不写死：先用同源（页面从服务本身打开时最可靠），
+   file:// 打开时再从 /api/ping 拿到的实际端口/地址兜底。 */
+let PORT = 8125;                       // 运行时由 /api/ping 覆盖
+let SERVER = {port: PORT, host: '127.0.0.1', urls: []};
+let BASE = '';
+const U = u => (!u ? u : (/^(https?:|data:|blob:)/i.test(u) ? u : BASE + (u[0] === '/' ? u : '/' + u)));
+
+/* 同源优先；file:// 时用探测到的 origin */
+function setBase(){
+  const p = location.protocol;
+  if (p === 'http:' || p === 'https:') { BASE = ''; return; }
+  BASE = `http://127.0.0.1:${SERVER.port}`;
+}
+
+/* 读取服务端实际配置（端口 / 监听地址 / 可用访问地址） */
+async function loadServerInfo(){
+  const r = await fetch(U('/api/ping'), {signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined});
+  const d = await r.json();
+  if (d && d.ok){
+    SERVER = {port: d.port || 8125, host: d.host || '127.0.0.1', urls: d.urls || []};
+    setBase();
+  }
+  return SERVER;
+}
+
+function banner(html){ const b = $('#banner'); b.innerHTML = html; b.classList.add('on'); }
+window.addEventListener('error', e => banner('<b>页面脚本出错</b> · ' + (e.message || 'unknown')));
+window.addEventListener('unhandledrejection', e => banner('<b>请求失败</b> · ' + ((e.reason && e.reason.message) || e.reason)));
+const S = { tab:'pose', q:'', cat:'', series:'', angle:'front', pose:null, costume:null, identity:null,
+            offset:0, total:0, items:[] };
+/* ?tab=costume 可直接落到衣装库 */
+(()=>{ const t=new URLSearchParams(location.search).get('tab'); if(t==='pose'||t==='costume') S.tab=t; })();
+let META = null;
+let ready = false;
+
+/* ---------- 通用 ---------- */
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1900); }
+
+async function jget(u, ms){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(), ms||8000);
+  try{
+    const r=await fetch(U(u),{signal:ctrl.signal});
+    if(!r.ok){
+      let m=r.status;
+      try{ m=(await r.json()).error||r.status; }catch(e){}
+      throw new Error(m);
+    }
+    return await r.json();
+  }finally{ clearTimeout(timer); }
+}
+async function jpost(u,body,headers){ const r=await fetch(U(u),{method:'POST',headers:Object.assign({'Content-Type':'application/json'},headers||{}),body:JSON.stringify(body)});
+  const d=await r.json(); if(!r.ok) throw new Error(d.error||r.status); return d; }
+
+/* 连不上服务时，别让界面停在"检测中" */
+function hideBanner(){ $('#banner').classList.remove('on'); }
+function offline(msg){
+  const b=$('#banner');
+  b.innerHTML=msg;
+  const btn=document.createElement('button');
+  btn.textContent='重新连接';
+  btn.style.cssText='margin-left:10px;padding:4px 11px;border-radius:7px;border:1px solid #8a4a4a;background:#4a2226;color:#ffd7d7;font-size:12px';
+  btn.onclick=()=>{ b.classList.remove('on'); ready=false; boot(); };
+  b.appendChild(btn);
+  b.classList.add('on');
+  const p=$('#status');
+  p.querySelector('.dot').classList.remove('on');
+  p.querySelector('span').textContent='未连接';
+  $('#go').disabled=true;
+}
+
+/* file:// 直接打开时，跳到真正的服务地址，避免资源路径全部失效 */
+async function rescueFromFile(){
+  if(location.protocol !== 'file:') return true;
+  try{
+    const c=new AbortController(); const t=setTimeout(()=>c.abort(),5000);
+    const r = await fetch(`http://127.0.0.1:${SERVER.port}/api/ping`,{signal:c.signal});
+    clearTimeout(t);
+    const d = await r.json();
+    if(d && d.ok){
+      SERVER = {port: d.port || SERVER.port, host: d.host || SERVER.host, urls: d.urls || []};
+      location.replace(`http://127.0.0.1:${SERVER.port}/`);
+      return false;
+    }
+  }catch(e){}
+  offline('<b>连不上 Studio 服务</b> · 当前是直接用文件打开的页面，需要先启动服务：双击同目录下的 <code>启动 Atlas Studio.bat</code>');
+  return false;
+}
+
+/* ---------- 状态 ---------- */
+async function boot(){
+  if(!await rescueFromFile()) return;
+  try{
+    await loadServerInfo();
+    META = await jget('/api/meta', 9000);
+    setComfy(META.comfy);
+    if(META.engine) $('#engine').textContent = 'POSE · COSTUME → ' + META.engine;
+    renderAddrPanel();
+    hideBanner();
+    ready = true;
+    loadChips();
+    loadLib(true);
+  }catch(e){
+    const why = (e && e.name === 'AbortError') ? '（请求超时，服务可能卡住）' : '';
+    offline('<b>连不上 Studio 服务</b> · ' + SERVER.port + ' 端口没响应' + why
+      + '。请双击同目录下的 <code>启动 Atlas Studio.bat</code>，并确认弹出的 "Atlas Server" 窗口没有报错。');
+  }
+}
+function setComfy(on){
+  const p=$('#status'); p.querySelector('.dot').classList.toggle('on',on);
+  p.querySelector('span').textContent = on?'ComfyUI 在线':'ComfyUI 未启动';
+  $('#go').disabled = !on;
+}
+
+/* ---------- 访问地址面板 ---------- */
+function renderAddrPanel(){
+  const urls = (SERVER.urls && SERVER.urls.length) ? SERVER.urls : [`http://127.0.0.1:${SERVER.port}/`];
+  const cur = location.origin + '/';
+  const list = $('#addrlist');
+  list.innerHTML = '';
+  urls.forEach((u, i)=>{
+    const isLocal = /127\.0\.0\.1|localhost/.test(u);
+    const row = document.createElement('div');
+    row.className = 'addrrow' + (u === cur ? ' cur' : '');
+    const label = isLocal ? '本机打开' : '局域网其他设备打开';
+    row.innerHTML = `<div class="u">${u}<small>${label}${u===cur?' · 当前页面':''}</small></div>`;
+    const btn = document.createElement('button');
+    btn.textContent = '复制';
+    btn.onclick = async ()=>{
+      try{ await navigator.clipboard.writeText(u); toast('已复制 ' + u); }
+      catch(e){
+        const ta=document.createElement('textarea'); ta.value=u; document.body.appendChild(ta);
+        ta.select(); try{ document.execCommand('copy'); toast('已复制 ' + u); }catch(_){ toast('复制失败，请手动选中'); }
+        ta.remove();
+      }
+    };
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+
+  // 端口与监听信息
+  const foot = $('#addrfoot');
+  const lan = urls.find(u=>!/127\.0\.0\.1|localhost/.test(u));
+  foot.innerHTML =
+    `监听地址 <code>${SERVER.host}</code> · 端口 <code>${SERVER.port}</code><br>` +
+    (lan ? `局域网地址已可用：<code>${lan}</code><br>` : `未检测到局域网地址<br>`) +
+    `换端口/监听范围：编辑 <code>config.json</code> 里的 <code>port</code> / <code>host</code> 后重启。`;
+
+  $('#addrbtn-txt').textContent = '访问地址';
+}
+
+/* 面板开合 */
+document.addEventListener('click', e=>{
+  const pop = $('#addrpop');
+  if(!pop) return;
+  if(e.target.closest('#addrbtn')){ pop.classList.toggle('on'); e.stopPropagation(); return; }
+  if(!e.target.closest('#addrpop')) pop.classList.remove('on');
+});
+setInterval(async()=>{
+  try{
+    const m=await jget('/api/meta', 6000);
+    setComfy(m.comfy); hideBanner();
+    if(!ready){ ready=true; META=m; loadChips(); loadLib(true); }
+  }catch(e){
+    if(ready){
+      ready=false;
+      offline('<b>与服务的连接断了</b> · ' + SERVER.port + ' 端口没响应，Studio 服务可能被关掉了。重新双击同目录下的 <code>启动 Atlas Studio.bat</code> 即可。');
+    }
+  }
+}, 15000);
+
+/* ---------- 素材库 ---------- */
+function loadChips(){
+  const box=$('#chips'); box.innerHTML='';
+  const add=(label,val,key)=>{
+    const b=el('button','chip'); b.textContent=label;
+    if((S[key]||'')===val) b.classList.add('on');
+    b.onclick=()=>{ S[key]= (S[key]===val?'':val); S.offset=0; loadChips(); loadLib(true); };
+    box.appendChild(b);
+  };
+  if(S.tab==='pose'){
+    add('全部','' ,'series');
+    (META.series||[]).forEach(s=>add(s.name,s.key,'series'));
+    box.appendChild(el('span','')).style.width='14px';
+    ['站姿','坐姿','跪立','趴卧','特殊'].forEach(c=>add(c,c,'cat'));
+  }else{
+    add('全部','','cat');
+    (META.costumeCats||[]).forEach(c=>add(c,c,'cat'));
+  }
+}
+
+function cardFor(it){
+  const c=el('div','card'); c.draggable=true;
+  const im=el('img'); im.loading='lazy'; im.decoding='async'; im.src=U(it.thumb); im.alt=it.id;
+  im.onerror=()=>{ im.onerror=null; const ph=el('div','noimg'); ph.textContent='缩略图读取失败\n'+it.thumb; im.replaceWith(ph); };
+  const cap=el('div','cap');
+  if(S.tab==='pose'){
+    cap.innerHTML='<b>'+it.no+'</b> · '+it.category+'<br>'+it.name;
+    const b=el('div','badge'); b.textContent=it.angle; c.appendChild(b);
+  }else{
+    const kw=it.kw.split(' ').slice(0,5).join(' · ');
+    cap.innerHTML='<b>'+it.id+'</b> · '+it.category+'<br>'+kw;
+  }
+  c.appendChild(im); c.appendChild(cap);
+  const add=el('button','add'); add.textContent='＋'; add.title='加入批量队列';
+  add.onclick=ev=>{ ev.stopPropagation(); addToQueue(it, S.tab); };
+  c.appendChild(add);
+  c.onclick=()=>openLb(it);
+  c.addEventListener('dragstart',ev=>{
+    ev.dataTransfer.setData('text/plain', JSON.stringify({kind:S.tab, item:it}));
+    ev.dataTransfer.effectAllowed='copy';
+  });
+  return c;
+}
+
+async function loadLib(reset){
+  const grid=$('#grid');
+  if(reset){ S.offset=0; S.items=[]; grid.innerHTML=''; }
+  const u = S.tab==='pose'
+    ? `/api/poses?q=${encodeURIComponent(S.q)}&series=${encodeURIComponent(S.series)}&category=${encodeURIComponent(S.cat)}&angle=${S.angle}&limit=48&offset=${S.offset}`
+    : `/api/costumes?q=${encodeURIComponent(S.q)}&cat=${encodeURIComponent(S.cat)}&limit=48&offset=${S.offset}`;
+  let d;
+  try{ d=await jget(u); }catch(e){ toast(e.message); return; }
+  S.total=d.total;
+  const more=grid.querySelector('.loadmore'); if(more) more.remove();
+  if(!d.items.length && !S.items.length){ grid.appendChild(Object.assign(el('div','empty'),{textContent:'没有匹配的素材'})); return; }
+  d.items.forEach(it=>{ S.items.push(it); grid.appendChild(cardFor(it)); });
+  S.offset+=d.items.length;
+  if(S.offset<S.total){
+    const b=el('button','loadmore'); b.textContent=`加载更多（已显示 ${S.offset} / ${S.total}）`;
+    b.onclick=()=>loadLib(false); grid.appendChild(b);
+  }
+}
+
+/* ---------- 槽位 ---------- */
+function renderSlot(kind){
+  const slot=$('#slot-'+kind), th=$('#th-'+kind), v=$('#v-'+kind), h=$('#h-'+kind);
+  const d=S[kind];
+  slot.classList.toggle('filled', !!d);
+  if(!d){
+    th.style.backgroundImage='';
+    v.textContent = kind==='pose'?'拖入或点击选一个姿态':kind==='costume'?'拖入或点击选一套造型':'拖入一张真人照锁定长相';
+    h.textContent = kind==='pose'?'线稿人台只取姿态与机位':kind==='costume'?'整身服装 + 鞋包配饰':'不给就按提示词自由生成';
+    if(kind==='pose') $('#a-pose').innerHTML='';
+    return;
+  }
+  th.style.backgroundImage=`url("${U(d.thumb)}")`;
+  v.textContent = kind==='pose'? `${d.no} · ${d.name}` : kind==='costume'? `${d.id} · ${d.category}` : (d.name||'已选择人脸照');
+  h.textContent = kind==='pose'? `${d.id} @ ${ANG[d.angle]||d.angle}` : kind==='costume'? d.kw.split(' ').slice(0,4).join(' · ') : '已就绪';
+  if(kind==='pose' && d.angles){
+    const box=$('#a-pose'); box.innerHTML='';
+    d.angles.forEach(a=>{
+      const b=el('button','ang'+(a===d.angle?' on':'')); b.textContent=ANG[lang(a)]||a;
+      b.onclick=ev=>{ ev.stopPropagation(); setPoseAngle(a); };
+      box.appendChild(b);
+    });
+  }
+}
+const ANG={front:'正面',side:'侧面',diagonal:'斜侧',high:'俯视',low:'仰视'};
+function lang(a){ return a; }
+
+function setPoseAngle(a){
+  if(!S.pose) return;
+  const v=(S.pose.variants||{})[a];
+  S.pose.angle=a;
+  // 换机位必须同时换缩略图，否则点上去毫无反馈，看着像"不能选"
+  if(v){ S.pose.thumb=v.thumb; S.pose.full=v.full; }
+  renderSlot('pose');
+  toast(`机位已切到「${ANG[a]||a}」`);
+}
+
+['pose','costume','identity'].forEach(kind=>{
+  const slot=$('#slot-'+kind);
+  slot.addEventListener('dragover',e=>{ e.preventDefault(); slot.classList.add('over'); });
+  slot.addEventListener('dragleave',()=>slot.classList.remove('over'));
+  slot.addEventListener('drop',async e=>{
+    e.preventDefault(); slot.classList.remove('over');
+    const raw=e.dataTransfer.getData('text/plain');
+    if(raw){
+      try{
+        const p=JSON.parse(raw);
+        if(p.kind==='pose'&&kind!=='pose') return toast('姿势只能放进姿势位');
+        if(p.kind==='costume'&&kind!=='costume') return toast('服装只能放进服装位');
+        if(kind==='identity') return toast('人脸位请拖入真人照片');
+        S[kind]= kind==='pose' ? {...p.item, angle:p.item.angle||'front'} : p.item;
+        renderSlot(kind); return;
+      }catch(err){}
+    }
+    const file=[...(e.dataTransfer.files||[])][0];
+    if(file) await uploadTo(kind,file);
+  });
+  slot.addEventListener('click',e=>{
+    if(e.target.dataset.clear) return;
+    if(S[kind]){
+      if(kind==='identity') pickFile(kind); else openSlotLb(kind);
+    }else pickFile(kind);
+  });
+  slot.querySelector('[data-clear]').addEventListener('click',e=>{
+    e.stopPropagation(); S[kind]=null; renderSlot(kind);
+  });
+});
+
+function pickFile(kind){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=()=>{ if(inp.files[0]) uploadTo(kind,inp.files[0]); };
+  inp.click();
+}
+async function uploadTo(kind,file){
+  try{
+    const r=await fetch(U('/api/upload?x=1'),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Filename':encodeURIComponent(file.name)||'upload.png'},body:file});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error);
+    if(kind==='identity'){ S.identity={path:d.path,thumb:d.url,name:d.name}; renderSlot(kind); toast('人脸照已就位'); }
+    else if(kind==='pose'){ S.pose={id:'upload',no:'自定义',name:file.name,angle:'custom',angles:[],thumb:d.url,full:d.url,upload:d.path};
+      renderSlot(kind); toast('已放入自定义姿势图'); }
+    else { S.costume={id:'upload',category:'自定义',kw:file.name,thumb:d.url,full:d.url,upload:d.path};
+      renderSlot(kind); toast('已放入自定义服装图'); }
+  }catch(e){ toast('上传失败：'+e.message); }
+}
+
+/* ---------- 大图 ---------- */
+let lbData=null;
+function renderLbAngles(it){
+  const box=$('#lbang'); box.innerHTML='';
+  if(S.tab!=='pose' || !it.angles || it.angles.length<2) return;
+  it.angles.forEach(a=>{
+    const b=el('button','ang'+(a===it.angle?' on':'')); b.textContent=ANG[a]||a;
+    b.onclick=()=>{
+      const v=(it.variants||{})[a];
+      it.angle=a;
+      if(v){ it.thumb=v.thumb; it.full=v.full; }
+      $('#lbimg').src=U(it.full||it.thumb);
+      box.querySelectorAll('.ang').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      $('#lbd').textContent=`${it.id}\n机位：${it.angle}`;
+    };
+    box.appendChild(b);
+  });
+}
+function openLb(it){
+  lbData={kind:S.tab,item:it};
+  $('#lbimg').src = U(it.full || it.thumb);
+  $('#lbt').textContent = S.tab==='pose' ? `${it.no} · ${it.name}` : `${it.id} · ${it.category}`;
+  $('#lbd').textContent = S.tab==='pose' ? `${it.id}\n机位：${it.angle}` : it.kw;
+  renderLbAngles(it);
+  $('#lbpose').style.display = S.tab==='pose'?'block':'none';
+  $('#lbcostume').style.display = S.tab==='costume'?'block':'none';
+  $('#lb').classList.add('on');
+}
+function openSlotLb(kind){
+  const d=S[kind];
+  lbData={kind,item:d};
+  $('#lbimg').src=U(d.thumb);
+  $('#lbt').textContent = kind==='pose'?`${d.no} · ${d.name}`:`${d.id} · ${d.category}`;
+  $('#lbd').textContent = kind==='pose'?`${d.id} @ ${d.angle}`:d.kw;
+  $('#lbpose').style.display = kind==='pose'?'block':'none';
+  $('#lbcostume').style.display = kind==='costume'?'block':'none';
+  $('#lb').classList.add('on');
+}
+$('#lb').addEventListener('click',e=>{ if(e.target.id==='lb'||e.target.id==='lbimg') $('#lb').classList.remove('on'); });
+$('#lbpose').onclick=()=>{ if(lbData&&lbData.kind==='pose'){ S.pose={...lbData.item,angle:lbData.item.angle||'front'}; renderSlot('pose'); } $('#lb').classList.remove('on'); toast('已填入姿势位'); };
+$('#lbcostume').onclick=()=>{ if(lbData&&lbData.kind==='costume'){ S.costume=lbData.item; renderSlot('costume'); } $('#lb').classList.remove('on'); toast('已填入服装位'); };
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ $('#lb').classList.remove('on'); $('#hist').classList.remove('on'); }
+});
+
+/* ---------- 生成 ---------- */
+$('#sw').oninput=()=>$('#swv').textContent=(+$('#sw').value).toFixed(2);
+
+/* ---------- 姿态控制 / 身材 ---------- */
+let poseMode='skeleton';
+let halfBody=false;
+document.querySelector('#halfBody').addEventListener('change', e=>{
+  halfBody = e.target.checked;
+  document.querySelectorAll('#legratio button').forEach(b=>{ b.style.opacity = halfBody ? '0.35' : ''; });
+  document.getElementById('legratio').style.pointerEvents = halfBody ? 'none' : '';
+});
+document.querySelectorAll('#posemode .sg').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#posemode .sg').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); poseMode=b.dataset.v;
+  };
+});
+let facePick='cn';
+document.querySelectorAll('#faces .fd').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#faces .fd').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); facePick=b.dataset.v;
+  };
+});
+let bodyPick='xxthin';
+const BODY_WARP_UI={ultra:68,xxthin:75,slim:80,model:79,normal:85,curvy:90,plus:94};
+function setSlim(v){ $('#slim').value=v; $('#slimv').textContent=v+'%'; }
+$('#slim').oninput=()=>{ $('#slimv').textContent=$('#slim').value+'%'; };
+document.querySelectorAll('#bodies .bd').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#bodies .bd').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    bodyPick=b.dataset.v;
+    setSlim(BODY_WARP_UI[bodyPick] ?? 84);   // 切档位时把滑块带到该档的默认值
+  };
+});
+
+/* ---------- 身高 / 腿身比 ---------- */
+let heightPick='normal', legPick='normal';
+function bindSeg(sel, setter){
+  document.querySelectorAll(sel+' button').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll(sel+' button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on'); setter(b.dataset.v);
+    };
+  });
+}
+bindSeg('#height', v=>heightPick=v);
+bindSeg('#legratio', v=>legPick=v);
+
+$('#redo').onclick=()=>{ $('#seed').value=Math.floor(Math.random()*1e6); doGenerate(); };
+$('#go').onclick=()=>doGenerate();
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter') doGenerate(); });
+
+/* ---------- 参数收集 / 回填 ---------- */
+function curParams(){
+  const [w,h]=$('#size').value.split('x').map(Number);
+  return {
+    prompt: $('#prompt').value,
+    body: bodyPick, poseMode: poseMode, face: facePick,
+    slimPct: (+$('#slim').value)/100,
+    stature: heightPick, leg: legPick, halfBody: halfBody,
+    bust: +$('#bust').value, waist: +$('#waist').value, hip: +$('#hip').value,
+    size: $('#size').value, width:w, height:h,
+    seed: +$('#seed').value || 1,
+    steps: +$('#steps').value || 8,
+    doSwap: $('#doSwap').checked,
+    swapStrength: +$('#sw').value
+  };
+}
+function markOn(sel, v){ document.querySelectorAll(sel).forEach(x=>x.classList.toggle('on', x.dataset.v===v)); }
+
+/* keepSeed=true 时不动种子（套用历史参数时更合用） */
+function applyParams(p, keepSeed){
+  if(!p) return;
+  if(p.body && BODY_WARP_UI[p.body]!==undefined){
+    bodyPick=p.body; markOn('#bodies .bd', p.body); setSlim(BODY_WARP_UI[p.body]);
+  }
+  if(p.poseMode){ poseMode=p.poseMode; markOn('#posemode .sg', p.poseMode); }
+  if(p.face){ facePick=p.face; markOn('#faces .fd', p.face); }
+  if(p.stature){ heightPick=p.stature; markOn('#height button', p.stature); }
+  if(p.halfBody!=null){
+    halfBody=!!p.halfBody; $('#halfBody').checked=!!p.halfBody;
+    document.querySelectorAll('#legratio button').forEach(b=>{ b.style.opacity = halfBody?'0.35':''; });
+    document.getElementById('legratio').style.pointerEvents = halfBody?'none':'';
+  }
+  if(p.leg){ legPick=p.leg; markOn('#legratio button', p.leg); }
+  if(p.slimPct!=null) setSlim(Math.round(p.slimPct*100));
+  if(p.bust!=null) $('#bust').value=p.bust;
+  if(p.waist!=null) $('#waist').value=p.waist;
+  if(p.hip!=null) $('#hip').value=p.hip;
+  if(p.size) $('#size').value=p.size;
+  if(!keepSeed && p.seed) $('#seed').value=p.seed;
+  if(p.steps) $('#steps').value=p.steps;
+  if(p.doSwap!=null) $('#doSwap').checked=!!p.doSwap;
+  if(p.swapStrength!=null){ $('#sw').value=p.swapStrength; $('#swv').textContent=(+p.swapStrength).toFixed(2); }
+  if(p.prompt!=null) $('#prompt').value=p.prompt;
+}
+
+/* ---------- 单张 / 批量 切换 ---------- */
+let view='single';
+function setView(v){
+  view=v;
+  document.body.classList.toggle('batch', v==='batch');
+  $('#batchpanel').style.display = v==='batch' ? '' : 'none';
+  document.querySelectorAll('#modebar .mb').forEach(b=>b.classList.toggle('on', b.dataset.m===v));
+  syncBatchSlot();
+  $('#go').textContent = v==='batch' ? '开始批量生成' : '生成';
+  $('#redo').style.display = v==='batch' ? 'none' : '';
+  renderQueue();
+}
+document.querySelectorAll('#modebar .mb').forEach(b=>{ b.onclick=()=>setView(b.dataset.m); });
+
+let bMode='costume';
+function syncBatchSlot(){
+  const ps=$('#slot-pose'), cs=$('#slot-costume');
+  if(view!=='batch'){
+    ps.style.display=''; cs.style.display='';
+    $('#k-pose').textContent='01 · 姿势';
+    $('#k-costume').textContent='02 · 服装';
+    return;
+  }
+  ps.style.display = bMode==='costume' ? '' : 'none';
+  cs.style.display = bMode==='pose' ? '' : 'none';
+  $('#k-pose').textContent = bMode==='costume' ? '01 · 固定姿势' : '01 · 姿势';
+  $('#k-costume').textContent = bMode==='pose' ? '02 · 固定服装' : '02 · 服装';
+  $('#bqtitle').textContent = bMode==='costume' ? '服装队列' : '姿态队列';
+}
+document.querySelectorAll('#bmode .bm').forEach(b=>{
+  b.onclick=()=>{
+    if(bMode===b.dataset.v) return;
+    bMode=b.dataset.v;
+    document.querySelectorAll('#bmode .bm').forEach(x=>x.classList.toggle('on', x===b));
+    if(bQueue.length){ bQueue=[]; toast('切换批量方式，队列已清空'); }
+    syncBatchSlot(); renderQueue();
+  };
+});
+
+/* ---------- 批量队列 ---------- */
+let bQueue=[];
+const BMAX=20;
+function renderQueue(){
+  const box=$('#bqlist'); if(!box) return;
+  box.innerHTML='';
+  if(!bQueue.length){
+    const e=el('div','bqempty');
+    e.textContent = bMode==='costume' ? '队列空 · 去右侧衣装库挑服装' : '队列空 · 去右侧姿态库挑姿态';
+    box.appendChild(e);
+  }
+  bQueue.forEach((q,i)=>{
+    const d=el('div','bqi');
+    const im=el('img'); im.src=U(q.thumb); im.loading='lazy'; im.title=q.label;
+    const cap=el('i'); cap.textContent=q.label;
+    const rm=el('button','rm'); rm.textContent='✕'; rm.title='移出队列';
+    rm.onclick=ev=>{ ev.stopPropagation(); bQueue.splice(i,1); renderQueue(); };
+    d.appendChild(im); d.appendChild(cap); d.appendChild(rm);
+    box.appendChild(d);
+  });
+  $('#bqcount').textContent = bQueue.length+' / '+BMAX;
+  $('#bqcount').style.color = bQueue.length>=BMAX ? 'var(--warn)' : 'var(--tx2)';
+}
+function addToQueue(it, kind){
+  if(view!=='batch'){ toast('先切到「批量」模式'); return; }
+  const want = bMode==='costume' ? 'costume' : 'pose';
+  if(kind!==want){
+    toast(bMode==='costume' ? '当前是「固定姿势·换服装」，只能加服装' : '当前是「固定服装·换姿态」，只能加姿态');
+    return;
+  }
+  if(!it || !it.id || it.id==='upload'){ toast('自定义图请用单张模式'); return; }
+  if(bQueue.length>=BMAX){ toast('队列最多 '+BMAX+' 个'); return; }
+  const angle = kind==='pose' ? (it.angle||'front') : '';
+  const key = kind+':'+it.id+(angle?':'+angle:'');
+  if(bQueue.some(q=>q.key===key)){ toast('队列里已经有这个了'); return; }
+  bQueue.push({
+    key, kind, id:it.id, thumb:it.thumb, angle,
+    label: kind==='pose' ? ((it.no||'')+' '+(it.name||it.id)).trim() : it.id
+  });
+  renderQueue();
+  toast('已加入队列 '+bQueue.length+' / '+BMAX);
+}
+(function bindQueueDrop(){
+  const box=$('#bqlist');
+  box.addEventListener('dragover',e=>{ e.preventDefault(); box.classList.add('over'); });
+  box.addEventListener('dragleave',()=>box.classList.remove('over'));
+  box.addEventListener('drop',e=>{
+    e.preventDefault(); e.stopPropagation(); box.classList.remove('over');
+    const raw=e.dataTransfer.getData('text/plain');
+    if(!raw) return;
+    try{ const p=JSON.parse(raw); addToQueue(p.item, p.kind); }catch(err){}
+  });
+})();
+$('#bqclear').onclick=()=>{ if(!bQueue.length) return; bQueue=[]; renderQueue(); toast('队列已清空'); };
+
+/* ---------- 生成 ---------- */
+let polling=null;
+async function doGenerate(){
+  if(view==='batch') return startBatch();
+  if(!S.pose && !S.costume && !S.identity && !$('#prompt').value.trim())
+    return toast('至少给一个参考图或提示词');
+  if((S.pose||S.costume) && !S.identity)
+    toast('没人脸照容易生成人台，建议放入一张真人照');
+  if(S.identity && !$('#doSwap').checked)
+    toast('没勾换脸精修，长相只能靠参考图碰运气');
+  const p=curParams();
+  const body=Object.assign({}, p, {
+    pose: S.pose && S.pose.id!=='upload' ? {id:S.pose.id, angle:S.pose.angle} : null,
+    costume: S.costume && S.costume.id!=='upload' ? {id:S.costume.id} : null,
+    custom: {
+      pose: S.pose && S.pose.upload ? S.pose.upload : null,
+      costume: S.costume && S.costume.upload ? S.costume.upload : null
+    },
+    identity: S.identity ? {path:S.identity.path} : null,
+    doSwap: $('#doSwap').checked && !!S.identity
+  });
+
+  $('#go').disabled=true;
+  setState('提交任务…', true);
+  try{
+    const d=await jpost('/api/generate', body);
+    poll(d.job);
+  }catch(e){ setState('失败：'+e.message,false); toast(e.message); $('#go').disabled=false; }
+}
+
+async function startBatch(){
+  const fixedPose   = bMode==='costume' ? (S.pose && S.pose.id!=='upload' ? {id:S.pose.id, angle:S.pose.angle} : null) : null;
+  const fixedCostume= bMode==='pose'    ? (S.costume && S.costume.id!=='upload' ? {id:S.costume.id} : null) : null;
+  if(bMode==='costume' && !fixedPose)    return toast('先在 01 位放一个固定姿势');
+  if(bMode==='pose'    && !fixedCostume) return toast('先在 02 位放一套固定服装');
+  if(!bQueue.length) return toast('队列还是空的，先加几个素材');
+  const p=curParams();
+  const body=Object.assign({}, p, {
+    mode: bMode,
+    seedMode: $('#bsameSeed').checked ? 'fixed' : 'random',
+    pose: fixedPose,
+    costume: fixedCostume,
+    costumes: bMode==='costume' ? bQueue.map(q=>q.id) : [],
+    poses: bMode==='pose' ? bQueue.map(q=>({id:q.id, angle:q.angle||'front'})) : [],
+    custom: {pose:null, costume:null},
+    identity: S.identity ? {path:S.identity.path} : null,
+    doSwap: $('#doSwap').checked && !!S.identity
+  });
+  $('#go').disabled=true;
+  setState(`提交批量任务 · ${bQueue.length} 张…`, true);
+  try{
+    const d=await jpost('/api/batch', body);
+    pollBatch(d.batch, d.total);
+  }catch(e){
+    setState('失败：'+e.message, false); toast(e.message); $('#go').disabled=false;
+  }
+}
+
+function pollBatch(bid, total){
+  clearInterval(polling);
+  const box=$('#results'); box.className='bresults'; box.innerHTML='';
+  setState(`批量排队中 · 共 ${total} 张`, true);
+  polling=setInterval(async()=>{
+    let d;
+    try{ d=await jget('/api/batch/'+bid); }catch(e){ return; }
+    const cur=d.items.find(i=>i.state==='running') || d.items.find(i=>i.state==='queued');
+    const head = `批量 ${d.done+d.failed} / ${d.total}`;
+    const sub = cur ? ` · ${cur.label2||cur.label} · ${cur.stage}` : '';
+    const bad = d.failed ? ` · <span class="err">失败 ${d.failed}</span>` : '';
+    setState(head+sub+bad, !d.finished);
+    renderBatchResults(d.items);
+    if(d.finished){
+      clearInterval(polling);
+      setState(`批量完成 · ${d.done} 张成功${d.failed?` · ${d.failed} 张失败`:''} · ${Math.round(d.elapsed)}s`, false);
+      $('#go').disabled=false;
+      toast(`批量完成：${d.done} 张`);
+    }
+  }, 2000);
+}
+
+function renderBatchResults(items){
+  const box=$('#results');
+  box.className='bresults';
+  box.innerHTML='';
+  items.forEach(it=>{
+    const f=el('figure');
+    const ok = it.state==='done' && it.images.length;
+    if(ok){
+      const a=el('a'); a.href=U(it.images[0].url); a.target='_blank';
+      const img=el('img'); img.src=U(it.images[0].url); img.loading='lazy';
+      a.appendChild(img); f.appendChild(a);
+    }else{
+      const ph=el('div','pend'+(it.state==='error'?' bad':''));
+      ph.textContent = it.state==='error' ? '失败\n'+(it.error||'').slice(0,60)
+        : (it.state==='running' ? (it.stage||'生成中')+'…' : '排队中');
+      f.appendChild(ph);
+    }
+    const cap=el('figcaption');
+    const lab = (it.label||'').replace(/\.(jpg|png|webp)$/i,'');
+    const no = items.indexOf(it)+1;
+    cap.textContent = ok ? `${no}. ${lab}${it.swapped?' · 已换脸':''}` : `${no}. ${lab} · ${it.stage}`;
+    cap.title = lab;
+    f.appendChild(cap);
+    box.appendChild(f);
+  });
+}
+
+function setState(html, spin, logs){
+  const s=$('#state');
+  if(!html){ s.classList.remove('on'); s.innerHTML=''; return; }
+  s.classList.add('on');
+  const esc=v=>String(v).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const more = (logs&&logs.length)
+    ? `<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--tx3);font-size:11.5px">运行日志 ${logs.length} 条</summary><pre style="margin:6px 0 0;font-size:11px;color:var(--tx3);white-space:pre-wrap;line-height:1.55">${esc(logs.join('\n'))}</pre></details>`
+    : '';
+  s.innerHTML=html+(spin?'<div class="bar"><i></i></div>':'')+more;
+}
+
+function poll(jid){
+  clearInterval(polling);
+  setState('排队中…', true);
+  polling=setInterval(async()=>{
+    let d;
+    try{ d=await jget('/api/job/'+jid); }catch(e){ return; }
+    if(d.state==='done'){
+      clearInterval(polling);
+      const note = d.swapped
+        ? '<b style="color:var(--ok)">已换脸</b>'
+        : `<b style="color:var(--warn)">${d.swapNote||'未换脸'}</b>`;
+      setState(`完成 · ${d.elapsed}s · ${note}`, false, d.log);
+      renderResults(d.images, d.swapped, d.swapNote);
+      $('#go').disabled=false;
+    }else if(d.state==='error'){
+      clearInterval(polling);
+      setState(`<span class="err">失败：${d.error||'未知'}</span>`, false, d.log);
+      $('#go').disabled=false;
+    }else{
+      setState(`${d.stage} · ${d.elapsed}s`, true);
+    }
+  }, 1200);
+}
+
+function renderResults(imgs, swapped, note){
+  const box=$('#results'); box.className='results'; box.innerHTML='';
+  imgs.forEach((im,i)=>{
+    const f=el('figure');
+    const a=el('a'); a.href=U(im.url); a.target='_blank';
+    const img=el('img'); img.src=U(im.url); img.loading='lazy';
+    a.appendChild(img); f.appendChild(a);
+    const c=el('figcaption');
+    if(imgs.length>1) c.textContent = im.kind==='base' ? '底图 · 未换脸' : '成品 · 已换脸';
+    else c.textContent = swapped ? '成品 · 已换脸' : ('底图 · '+(note||'未换脸'));
+    f.appendChild(c); box.appendChild(f);
+  });
+}
+
+/* ---------- tab & search ---------- */
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.classList.toggle('on', b.dataset.tab===S.tab);
+  b.onclick=()=>{
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); S.tab=b.dataset.tab;
+    S.cat=''; S.series=''; S.offset=0;
+    loadChips(); loadLib(true);
+  };
+});
+let qt;
+$('#q').addEventListener('input',e=>{
+  clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value.trim(); S.offset=0; loadLib(true); }, 320);
+});
+$('#grid').addEventListener('scroll',e=>{
+  const g=e.target;
+  if(g.scrollTop+g.clientHeight > g.scrollHeight-220 && S.offset<S.total && !g.querySelector('.loadmore')) loadLib(false);
+});
+
+/* 全局允许拖放，避免浏览器打开图片 */
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>e.preventDefault());
+
+/* ---------- 参数预设 ---------- */
+let PRESETS=[];
+async function loadPresets(){
+  try{ PRESETS=(await jget('/api/presets')).items||[]; }
+  catch(e){ PRESETS=[]; }
+  const sel=$('#presetSel'); const cur=sel.value;
+  sel.innerHTML='<option value="">— 参数预设 —</option>';
+  PRESETS.forEach(p=>{
+    const o=document.createElement('option'); o.value=p.name; o.textContent=p.name; sel.appendChild(o);
+  });
+  if(cur && PRESETS.some(p=>p.name===cur)) sel.value=cur;
+}
+$('#presetSel').onchange=()=>{
+  const name=$('#presetSel').value;
+  if(!name) return;
+  const p=PRESETS.find(x=>x.name===name);
+  if(p){ applyParams(p.data, true); toast('已套用预设「'+name+'」（种子没动）'); }
+};
+$('#presetSave').onclick=async()=>{
+  const name=(window.prompt('预设名称（比如「超模·黑丝·腰90」）','')||'').trim();
+  if(!name) return;
+  try{
+    const d=await jpost('/api/presets',{action:'save', name, data:curParams()});
+    PRESETS=d.items||[]; await loadPresets();
+    $('#presetSel').value=name;
+    toast('已保存预设「'+name+'」');
+  }catch(e){ toast('保存失败：'+e.message); }
+};
+$('#presetDel').onclick=async()=>{
+  const name=$('#presetSel').value;
+  if(!name) return toast('先在下拉里选一个预设');
+  if(!window.confirm('删除预设「'+name+'」？')) return;
+  try{
+    const d=await jpost('/api/presets',{action:'delete', name});
+    PRESETS=d.items||[]; await loadPresets();
+    toast('已删除「'+name+'」');
+  }catch(e){ toast('删除失败：'+e.message); }
+};
+
+/* ---------- 历史出图 ---------- */
+$('#histbtn').onclick=openHistory;
+$('#histClose').onclick=()=>$('#hist').classList.remove('on');
+$('#hist').addEventListener('click',e=>{ if(e.target.id==='hist') $('#hist').classList.remove('on'); });
+
+async function openHistory(){
+  const box=$('#histgrid');
+  box.innerHTML='<div class="bqempty">读取中…</div>';
+  $('#hist').classList.add('on');
+  let items=[];
+  try{ items=(await jget('/api/history?limit=120', 15000)).items||[]; }
+  catch(e){ box.innerHTML='<div class="bqempty">读取失败：'+e.message+'</div>'; return; }
+  $('#histCount').textContent = items.length ? items.length+' 张' : '还没有记录';
+  box.innerHTML='';
+  if(!items.length){ box.innerHTML='<div class="bqempty">还没有出图记录<br>生成过的图会自动记在这里</div>'; return; }
+  items.forEach(m=>{
+    const c=el('div','hcard');
+    const im=el('img'); im.loading='lazy'; im.src=U(m.url); im.title='点击看大图';
+    im.onclick=()=>window.open(U(m.url),'_blank');
+    const cap=el('div','hcap');
+    const used=m.used||{};
+    const parts=[];
+    parts.push('<b>'+String(m.time||'').slice(11,19)+' · 种子 '+(m.seed==null?'-':m.seed)+'</b>');
+    if(used.pose) parts.push('姿势 '+used.pose);
+    if(used.costume) parts.push('服装 '+used.costume);
+    if(used.body) parts.push(used.body+(used.warp?' / '+Math.round(used.warp*100)+'%':''));
+    if((m.size||[]).length) parts.push(m.size.join('×'));
+    if(m.swapped) parts.push('<span style="color:var(--ok)">已换脸</span>');
+    cap.innerHTML=parts.join('<br>');
+    const btns=el('div','hbtns');
+    const b1=el('button'); b1.textContent='套用参数';
+    b1.onclick=()=>{ applyParams(m.opt||{}, true); $('#hist').classList.remove('on'); toast('已套用这张的参数'); };
+    const b2=el('button'); b2.textContent='原样重跑';
+    if(!m.opt || !Object.keys(m.opt).length){
+      b2.disabled=true; b2.style.opacity='.4'; b2.style.cursor='not-allowed'; b2.title='旧图没有存参数';
+    }else{
+      b2.onclick=()=>rerunMeta(m.opt);
+    }
+    btns.appendChild(b1); btns.appendChild(b2);
+    c.appendChild(im); c.appendChild(cap); c.appendChild(btns);
+    box.appendChild(c);
+  });
+}
+
+async function rerunMeta(opt){
+  if(!opt || (!opt.pose && !opt.costume && !opt.prompt)){
+    return toast('这条记录参数不全，没法直接重跑');
+  }
+  $('#hist').classList.remove('on');
+  const box=$('#results'); box.className='results'; box.innerHTML='';
+  $('#go').disabled=true;
+  setState('提交任务…', true);
+  try{ const d=await jpost('/api/generate', opt); poll(d.job); }
+  catch(e){ setState('失败：'+e.message, false); $('#go').disabled=false; }
+}
+
+setView('single');
+loadPresets();
+
+boot();
+
+</script>
+</body>
+</html>

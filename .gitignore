@@ -3,6 +3,9 @@
 # 运行时产物（输出、临时文件、深度图、骨架图、上传）
 app/work/
 
+# 打包产物（给朋友的 zip，含完整素材库约 2.1GB，不要进版本库）
+dist/
+
 # Python 缓存
 __pycache__/
 *.pyc
@@ -11,3 +14,10 @@ __pycache__/
 # 系统文件
 Thumbs.db
 .DS_Store
+
+# 编辑器
+.vscode/
+.idea/
+
+# Windows 快捷方式（含本机绝对路径，换机器就失效）
+*.lnk

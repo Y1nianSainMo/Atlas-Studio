@@ -18,8 +18,111 @@ CFG_PATH = os.path.join(ROOT, "config.json")
 with open(CFG_PATH, encoding="utf-8") as _f:
     C = json.load(_f)
 
-API = os.environ.get("COMFY_API") or C["api"]
-COMFY = C["comfy_root"]
+
+def _resolve_comfy():
+    """定位 ComfyUI —— 支持任意盘符/文件夹。
+
+    优先级：环境变量 ATLAS_COMFY_ROOT / COMFY_ROOT → skill 自己的 config.json
+    → 自动扫描本机所有盘符。找到后把结果写回 config.json，下次直接命中。
+    """
+    def _norm(p):
+        return str(p).replace("\\", "/") if p else ""
+
+    def _is_dir(p):
+        try:
+            return bool(p) and os.path.isdir(p)
+        except OSError:
+            return False
+
+    def _is_file(p):
+        try:
+            return bool(p) and os.path.isfile(p)
+        except OSError:
+            return False
+
+    def _python_in(root):
+        for c in (root + "/python_embeded/python.exe",
+                  root + "/python_embeded/pythonw.exe",
+                  root + "/embedded/python.exe",
+                  root + "/venv/Scripts/python.exe",
+                  root + "/.venv/Scripts/python.exe"):
+            if _is_file(c):
+                return c
+        return ""
+
+    def _comfy_dir(root):
+        for c in (root + "/ComfyUI", root):
+            if _is_file(c + "/main.py"):
+                return c
+        return ""
+
+    def _looks(root):
+        if not _is_dir(root):
+            return False
+        return bool(_is_file(root + "/ComfyUI/main.py")
+                    or _is_file(root + "/main.py")
+                    or _is_dir(root + "/ComfyUI/custom_nodes"))
+
+    # 1) 环境变量
+    for var in ("ATLAS_COMFY_ROOT", "COMFY_ROOT"):
+        v = _norm(os.environ.get(var))
+        if v and _looks(v):
+            return v, _comfy_dir(v), _python_in(v)
+
+    # 2) skill 的 config.json
+    v = _norm(C.get("comfy_root"))
+    if v and _looks(v):
+        return v, _comfy_dir(v), _python_in(v)
+
+    # 3) 自动扫描所有盘符（深度 1 和 2）
+    drives = []
+    if os.name == "nt":
+        try:
+            import ctypes
+            mask = ctypes.windll.kernel32.GetLogicalDrives()
+            drives = ["%s:" % chr(65 + i) for i in range(26) if mask & (1 << i)]
+        except Exception:
+            drives = ["C:", "D:", "E:", "F:"]
+    else:
+        drives = ["/"]
+    hits = []
+    for dl in drives:
+        base = dl + "/"
+        if not _is_dir(base):
+            continue
+        try:
+            names = os.listdir(base)
+        except OSError:
+            continue
+        for name in names:
+            d = base + name
+            if _looks(d):
+                hits.append(d)
+        for name in names:
+            sub = base + name
+            if not _is_dir(sub):
+                continue
+            try:
+                subs = os.listdir(sub)
+            except OSError:
+                continue
+            for s2 in subs:
+                d = sub + "/" + s2
+                if _looks(d):
+                    hits.append(d)
+    if hits:
+        root = hits[0]
+        return root, _comfy_dir(root), _python_in(root)
+
+    # 4) 兜底：沿用 config 里的值（可能路径失效，但至少不会崩）
+    return v, _comfy_dir(v), _python_in(v)
+
+
+_COMFY_ROOT, _COMFY_DIR, _COMFY_PY = _resolve_comfy()
+
+API = os.environ.get("ATLAS_COMFY_API") or os.environ.get("COMFY_API") \
+    or C.get("api") or "http://127.0.0.1:8188"
+COMFY = _COMFY_DIR or C["comfy_root"]
 IN_DIR = os.path.join(COMFY, "input")
 OUT_DIR = os.path.join(COMFY, "output")
 DEF = C["defaults"]
@@ -50,8 +153,14 @@ def alive():
 
 def require_server():
     if not alive():
+        hint = ""
+        bat = os.path.join(_COMFY_ROOT or "", "1_1点击启动comfyui.bat")
+        if bat and os.path.isfile(bat):
+            hint = "\n先启动：%s" % bat
+        elif _COMFY_ROOT:
+            hint = "\n先启动 ComfyUI（目录：%s）" % _COMFY_ROOT
         raise SystemExit(
-            "ComfyUI 未响应 %s\n先启动：E:/ComfyUI_Mie_V33/1_1点击启动comfyui.bat" % API)
+            "ComfyUI 未响应 %s%s" % (API, hint))
 
 
 # ------------------------------------------------------------------- graph parts

@@ -7,8 +7,11 @@
   * 轮询进度、取回成品，可选再跑一遍换脸 LoRA 锁脸
 
 启动：
-  E:/ComfyUI_Mie_V33/python_embeded/python.exe E:/atlas-studio/studio_server.py
-  浏览器打开 http://127.0.0.1:8125/
+  双击同目录下的「启动 Atlas Studio.bat」（它会自动找 Python 和 ComfyUI）
+  或手动：python studio_server.py
+
+端口与监听地址在 config.json 里（port / host）。
+host 设为 0.0.0.0 时，局域网其他设备也能用 http://<本机IP>:<port>/ 打开。
 """
 import json
 import os
@@ -37,6 +40,9 @@ def _abs(p):
 
 
 PORT = int(CFG.get("port", 8125))
+# 监听地址：127.0.0.1 只允许本机访问；0.0.0.0 允许局域网其他设备访问。
+# 打包发给朋友时如果想让对方用 http://<你的局域网IP>:8125/ 打开，改成 0.0.0.0。
+HOST = str(CFG.get("host", "127.0.0.1")).strip() or "127.0.0.1"
 SKILL = _abs(CFG["skill_dir"])
 sys.path.insert(0, os.path.join(SKILL, "scripts"))
 import comfy as C            # noqa: E402  技能里的节点图零件
@@ -139,6 +145,23 @@ def history(limit=80):
 
 POSE_DIR = _abs(CFG["pose_dir"])
 COSTUME_DIR = _abs(CFG["costume_dir"])
+
+# 库目录若因打包/搬移找不到，回退到自动探测（同级 data/ 或环境变量）。
+# 姿态库和服装库可能分别位于不同机器的不同位置，必须容错。
+try:
+    import paths as _paths
+except ImportError:                                   # noqa: BLE001
+    _paths = None
+if _paths is not None:
+    try:
+        _pose_alt = _paths.find_data_dir("pose", CFG, HERE)
+        if _pose_alt and os.path.isdir(_pose_alt) and not os.path.isdir(POSE_DIR):
+            POSE_DIR = _pose_alt
+        _cost_alt = _paths.find_data_dir("costume", CFG, HERE)
+        if _cost_alt and os.path.isdir(_cost_alt) and not os.path.isdir(COSTUME_DIR):
+            COSTUME_DIR = _cost_alt
+    except Exception:                              # noqa: BLE001
+        pass
 
 # ------------------------------------------------------------------ 素材索引
 _lock = threading.Lock()
@@ -1738,7 +1761,9 @@ class H(BaseHTTPRequestHandler):
             if path in ("/", "/index.html"):
                 return self.send_file(os.path.join(HERE, "index.html"))
             if path in ("/api/ping", "/health"):
-                return self.send_json({"ok": True, "app": "atlas-studio", "port": PORT})
+                return self.send_json({"ok": True, "app": "atlas-studio",
+                                       "port": PORT, "host": HOST,
+                                       "urls": access_urls()})
             if path == "/api/meta":
                 pd = poses()
                 return self.send_json({
@@ -1747,7 +1772,9 @@ class H(BaseHTTPRequestHandler):
                     "categories": sorted({p["category"] for p in pd["poses"]}),
                     "costumeCats": sorted({c["カテゴリ"] for c in costumes()}),
                     "engine": CFG.get("engine", "FLUX.2 KLEIN"),
-                    "comfy": C.alive(), "api": C.API})
+                    "comfy": C.alive(), "api": C.API,
+                    "port": PORT, "host": HOST, "urls": access_urls(),
+                    "bat": os.path.join(HERE, "启动 Atlas Studio.bat")})
             if path == "/api/poses":
                 return self.send_json(json_items_pose(
                     g("q", "").strip(), g("series"), g("category"), g("angle"),
@@ -1910,13 +1937,53 @@ def clean_tmp(days=3):
         pass
 
 
+def lan_ips():
+    """列出本机所有 IPv4 地址（回环 + 局域网），供前端显示可用访问地址。"""
+    ips = ["127.0.0.1"]
+    try:
+        import socket
+        # 连一个不会真正发包的地址，拿到出口网卡 IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("10.255.255.255", 1))
+            ip = s.getsockname()[0]
+            if ip and ip not in ips:
+                ips.append(ip)
+        finally:
+            s.close()
+    except Exception:                                  # noqa: BLE001
+        pass
+    # 补上网卡配置里的地址（VPN / 多网卡场景）
+    try:
+        import socket
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if ip and not ip.startswith("127.") and ip not in ips:
+                ips.append(ip)
+    except Exception:                                  # noqa: BLE001
+        pass
+    return ips
+
+
+def access_urls():
+    """当前可用的访问地址列表。前端设置面板直接展示这些。"""
+    return ["http://%s:%d/" % (ip, PORT) for ip in lan_ips()]
+
+
 def main():
     clean_tmp()
     n = backfill_meta()
     if n:
         print("  补写历史元数据 %d 张" % n)
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
-    print("Atlas Studio -> http://127.0.0.1:%d/" % PORT)
+    srv = ThreadingHTTPServer((HOST, PORT), H)
+    srv.daemon_threads = True
+    urls = access_urls()
+    print("Atlas Studio 已启动")
+    print("  监听 %s:%d" % (HOST, PORT))
+    for u in urls:
+        print("    -> %s" % u)
+    if HOST == "127.0.0.1" and len(urls) > 1:
+        print("  想让局域网其他设备访问：把 config.json 的 host 改成 0.0.0.0 后重启")
     print("  姿态库 %s | 衣装库 %s" % (POSE_DIR, COSTUME_DIR))
     print("  ComfyUI %s %s" % (C.API, "OK" if C.alive() else "未启动"))
     srv.serve_forever()

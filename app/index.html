@@ -199,6 +199,24 @@ input[type=range]{width:100%;accent-color:var(--ac)}
 /* ---------- 历史抽屉 ---------- */
 .histbtn{font-size:12px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--tx2)}
 .histbtn:hover{border-color:#46536a;color:var(--tx)}
+
+/* 访问地址面板 */
+.addrbtn{font-size:12px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--tx2);display:flex;align-items:center;gap:7px}
+.addrbtn:hover{border-color:#46536a;color:var(--tx)}
+.addrbtn .ico{font-size:13px;line-height:1}
+.addrpop{position:fixed;top:62px;right:20px;width:min(430px,92vw);background:rgba(14,17,22,.985);backdrop-filter:blur(12px);border:1px solid var(--line2);border-radius:13px;padding:15px;z-index:80;display:none;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.addrpop.on{display:block}
+.addrpop h4{margin:0 0 4px;font-size:13px}
+.addrpop p{margin:0 0 11px;font-size:11.5px;color:var(--tx3);line-height:1.6}
+.addrlist{display:flex;flex-direction:column;gap:7px}
+.addrrow{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
+.addrrow .u{flex:1;min-width:0;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--tx);word-break:break-all}
+.addrrow .u small{display:block;font-family:system-ui,sans-serif;color:var(--tx3);font-size:10.5px;margin-top:3px}
+.addrrow button{font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--tx2);white-space:nowrap}
+.addrrow button:hover{border-color:var(--ac);color:var(--ac2)}
+.addrrow.cur{border-color:#2c4a7c;background:#141b28}
+.addrfoot{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);font-size:11px;color:var(--tx3);line-height:1.7}
+.addrfoot code{background:var(--panel2);padding:2px 6px;border-radius:5px;font-size:10.5px;color:var(--tx2);word-break:break-all}
 .drawer{position:fixed;inset:0 0 0 auto;width:min(760px,94vw);background:rgba(10,12,16,.98);backdrop-filter:blur(8px);border-left:1px solid var(--line2);display:none;flex-direction:column;z-index:70;box-shadow:-24px 0 70px rgba(0,0,0,.55)}
 .drawer.on{display:flex}
 .dhead{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
@@ -249,8 +267,16 @@ body.batch .card .add{display:grid}
 <header>
   <div class="brand">Atlas Studio<small id="engine">POSE · COSTUME → FLUX.2 KLEIN</small></div>
   <button class="histbtn" id="histbtn">历史出图</button>
+  <button class="addrbtn" id="addrbtn" title="查看 / 复制访问地址"><span class="ico">🔗</span><span id="addrbtn-txt">访问地址</span></button>
   <div class="pill" id="status" style="margin-left:0"><i class="dot"></i><span>检测中</span></div>
 </header>
+
+<div class="addrpop" id="addrpop">
+  <h4>访问地址</h4>
+  <p>本机打开用第一个地址；要让同一局域网的别的设备打开，用下面的局域网地址。</p>
+  <div class="addrlist" id="addrlist"></div>
+  <div class="addrfoot" id="addrfoot"></div>
+</div>
 
 <main>
   <aside>
@@ -470,15 +496,32 @@ const el = (t,c) => { const n=document.createElement(t); if(c) n.className=c; re
 
 /* ---------- 后端地址 ----------
    页面可能被双击用 file:// 打开、或从预览面板打开，此时相对路径 /api、/a 全部失效：
-   框架能看见，数据和图片却一片空白。统一用 U() 兜底，任何打开方式都能取到资源。 */
-const PORT = 8125;
-const ORIGIN = `http://127.0.0.1:${PORT}`;
-const BASE = (()=>{
-  const p = location.protocol;
-  if (p === 'http:' || p === 'https:') return location.port === String(PORT) ? '' : ORIGIN;
-  return ORIGIN;
-})();
+   框架能看见，数据和图片却一片空白。统一用 U() 兜底，任何打开方式都能取到资源。
+
+   服务端的地址不写死：先用同源（页面从服务本身打开时最可靠），
+   file:// 打开时再从 /api/ping 拿到的实际端口/地址兜底。 */
+let PORT = 8125;                       // 运行时由 /api/ping 覆盖
+let SERVER = {port: PORT, host: '127.0.0.1', urls: []};
+let BASE = '';
 const U = u => (!u ? u : (/^(https?:|data:|blob:)/i.test(u) ? u : BASE + (u[0] === '/' ? u : '/' + u)));
+
+/* 同源优先；file:// 时用探测到的 origin */
+function setBase(){
+  const p = location.protocol;
+  if (p === 'http:' || p === 'https:') { BASE = ''; return; }
+  BASE = `http://127.0.0.1:${SERVER.port}`;
+}
+
+/* 读取服务端实际配置（端口 / 监听地址 / 可用访问地址） */
+async function loadServerInfo(){
+  const r = await fetch(U('/api/ping'), {signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined});
+  const d = await r.json();
+  if (d && d.ok){
+    SERVER = {port: d.port || 8125, host: d.host || '127.0.0.1', urls: d.urls || []};
+    setBase();
+  }
+  return SERVER;
+}
 
 function banner(html){ const b = $('#banner'); b.innerHTML = html; b.classList.add('on'); }
 window.addEventListener('error', e => banner('<b>页面脚本出错</b> · ' + (e.message || 'unknown')));
@@ -533,12 +576,16 @@ async function rescueFromFile(){
   if(location.protocol !== 'file:') return true;
   try{
     const c=new AbortController(); const t=setTimeout(()=>c.abort(),5000);
-    const r = await fetch(ORIGIN + '/api/ping',{signal:c.signal});
+    const r = await fetch(`http://127.0.0.1:${SERVER.port}/api/ping`,{signal:c.signal});
     clearTimeout(t);
     const d = await r.json();
-    if(d && d.ok){ location.replace(ORIGIN + '/'); return false; }
+    if(d && d.ok){
+      SERVER = {port: d.port || SERVER.port, host: d.host || SERVER.host, urls: d.urls || []};
+      location.replace(`http://127.0.0.1:${SERVER.port}/`);
+      return false;
+    }
   }catch(e){}
-  offline('<b>连不上 Studio 服务</b> · 当前是直接用文件打开的页面，需要先启动 8125 服务：双击 <code>E:\\atlas-studio\\启动拖放生图台.bat</code>');
+  offline('<b>连不上 Studio 服务</b> · 当前是直接用文件打开的页面，需要先启动服务：双击同目录下的 <code>启动 Atlas Studio.bat</code>');
   return false;
 }
 
@@ -546,17 +593,19 @@ async function rescueFromFile(){
 async function boot(){
   if(!await rescueFromFile()) return;
   try{
+    await loadServerInfo();
     META = await jget('/api/meta', 9000);
     setComfy(META.comfy);
     if(META.engine) $('#engine').textContent = 'POSE · COSTUME → ' + META.engine;
+    renderAddrPanel();
     hideBanner();
     ready = true;
     loadChips();
     loadLib(true);
   }catch(e){
     const why = (e && e.name === 'AbortError') ? '（请求超时，服务可能卡住）' : '';
-    offline('<b>连不上 Studio 服务</b> · 8125 端口没响应' + why
-      + '。请双击 <code>E:\\atlas-studio\\启动拖放生图台.bat</code>，并确认弹出的 "Atlas Server" 窗口没有报错。');
+    offline('<b>连不上 Studio 服务</b> · ' + SERVER.port + ' 端口没响应' + why
+      + '。请双击同目录下的 <code>启动 Atlas Studio.bat</code>，并确认弹出的 "Atlas Server" 窗口没有报错。');
   }
 }
 function setComfy(on){
@@ -564,6 +613,51 @@ function setComfy(on){
   p.querySelector('span').textContent = on?'ComfyUI 在线':'ComfyUI 未启动';
   $('#go').disabled = !on;
 }
+
+/* ---------- 访问地址面板 ---------- */
+function renderAddrPanel(){
+  const urls = (SERVER.urls && SERVER.urls.length) ? SERVER.urls : [`http://127.0.0.1:${SERVER.port}/`];
+  const cur = location.origin + '/';
+  const list = $('#addrlist');
+  list.innerHTML = '';
+  urls.forEach((u, i)=>{
+    const isLocal = /127\.0\.0\.1|localhost/.test(u);
+    const row = document.createElement('div');
+    row.className = 'addrrow' + (u === cur ? ' cur' : '');
+    const label = isLocal ? '本机打开' : '局域网其他设备打开';
+    row.innerHTML = `<div class="u">${u}<small>${label}${u===cur?' · 当前页面':''}</small></div>`;
+    const btn = document.createElement('button');
+    btn.textContent = '复制';
+    btn.onclick = async ()=>{
+      try{ await navigator.clipboard.writeText(u); toast('已复制 ' + u); }
+      catch(e){
+        const ta=document.createElement('textarea'); ta.value=u; document.body.appendChild(ta);
+        ta.select(); try{ document.execCommand('copy'); toast('已复制 ' + u); }catch(_){ toast('复制失败，请手动选中'); }
+        ta.remove();
+      }
+    };
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+
+  // 端口与监听信息
+  const foot = $('#addrfoot');
+  const lan = urls.find(u=>!/127\.0\.0\.1|localhost/.test(u));
+  foot.innerHTML =
+    `监听地址 <code>${SERVER.host}</code> · 端口 <code>${SERVER.port}</code><br>` +
+    (lan ? `局域网地址已可用：<code>${lan}</code><br>` : `未检测到局域网地址<br>`) +
+    `换端口/监听范围：编辑 <code>config.json</code> 里的 <code>port</code> / <code>host</code> 后重启。`;
+
+  $('#addrbtn-txt').textContent = '访问地址';
+}
+
+/* 面板开合 */
+document.addEventListener('click', e=>{
+  const pop = $('#addrpop');
+  if(!pop) return;
+  if(e.target.closest('#addrbtn')){ pop.classList.toggle('on'); e.stopPropagation(); return; }
+  if(!e.target.closest('#addrpop')) pop.classList.remove('on');
+});
 setInterval(async()=>{
   try{
     const m=await jget('/api/meta', 6000);
@@ -572,7 +666,7 @@ setInterval(async()=>{
   }catch(e){
     if(ready){
       ready=false;
-      offline('<b>与服务的连接断了</b> · 8125 端口没响应，Studio 服务可能被关掉了。重新双击 <code>E:\\atlas-studio\\启动拖放生图台.bat</code> 即可。');
+      offline('<b>与服务的连接断了</b> · ' + SERVER.port + ' 端口没响应，Studio 服务可能被关掉了。重新双击同目录下的 <code>启动 Atlas Studio.bat</code> 即可。');
     }
   }
 }, 15000);

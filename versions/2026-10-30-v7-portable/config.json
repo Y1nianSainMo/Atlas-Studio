@@ -1,0 +1,12 @@
+{
+  "port": 8125,
+  "host": "127.0.0.1",
+  "comfy_root": "E:/ComfyUI_Mie_V33",
+  "comfy_api": "http://127.0.0.1:8188",
+  "python": "",
+  "skill_dir": "../skill/flux2-klein-portrait",
+  "pose_dir": "../data/pose-atlas",
+  "costume_dir": "../data/costume-gallery",
+  "concurrency": 1,
+  "engine": "FLUX.2 KLEIN"
+}

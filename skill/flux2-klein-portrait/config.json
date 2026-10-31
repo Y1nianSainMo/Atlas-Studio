@@ -1,7 +1,7 @@
 {
   "api": "http://127.0.0.1:8188",
-  "comfy_root": "E:/ComfyUI_Mie_V33/ComfyUI",
-  "python": "E:/ComfyUI_Mie_V33/python_embeded/python.exe",
+  "comfy_root": "",
+  "python": "",
   "models": {
     "unet": "flux-2-klein-9b-fp8.safetensors",
     "clip": "qwen_3_8b_fp4mixed.safetensors",
@@ -49,7 +49,7 @@
     "denoise": 1.0
   },
   "pose_atlas": {
-    "base": "E:/RuiC-PoseAtlas",
+    "base": "",
     "cache": "",
     "remote": "https://hruiccc.github.io/RuiC-PoseAtlas",
     "note": "本地 clone 优先（base 指向仓库目录，离线可用）；目录不存在时自动回落到 remote。POSE_ATLAS_BASE 环境变量优先级最高。"

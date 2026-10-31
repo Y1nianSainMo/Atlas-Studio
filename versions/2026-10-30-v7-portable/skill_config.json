@@ -1,0 +1,57 @@
+{
+  "api": "http://127.0.0.1:8188",
+  "comfy_root": "",
+  "python": "",
+  "models": {
+    "unet": "flux-2-klein-9b-fp8.safetensors",
+    "clip": "qwen_3_8b_fp4mixed.safetensors",
+    "vae": "flux2-vae.safetensors"
+  },
+  "lora": {
+    "faceswap": "klein9b_smart_character_swap.safetensors",
+    "faceswap_trigger": "jhuangswap",
+    "faceswap_fallback": "bfs_head_v1_flux-klein_9b_step3500_rank128.safetensors"
+  },
+  "control_lora": {
+    "pose": {
+      "file": "refcontrol_v2_poses.safetensors",
+      "strength": 0.8,
+      "trigger": "refcontrol",
+      "note": "FLUX.2 Klein 9B 的 OpenPose 强化 LoRA。配合 SDPose 骨架图使用，效果比纯提示词描述准得多。"
+    },
+    "depth": {
+      "file": "flux2_klein_9b_refcontrol_depth.safetensors",
+      "strength": 0.8,
+      "trigger": "refcontrol",
+      "note": "FLUX.2 Klein 9B 的 Depth 强化 LoRA。配合 DepthAnythingV2 深度图使用。"
+    },
+    "lineart": {
+      "file": "flux2_klein_9b_refcontrol_lineart.safetensors",
+      "strength": 0.8,
+      "trigger": "refcontrol",
+      "note": "FLUX.2 Klein 9B 的 Lineart 强化 LoRA。配合线稿人台（姿态库原图）使用。"
+    },
+    "canny": {
+      "file": "flux2_klein_9b_refcontrol_canny.safetensors",
+      "strength": 0.8,
+      "trigger": "refcontrol",
+      "note": "FLUX.2 Klein 9B 的 Canny 强化 LoRA。配合 Canny 边缘图使用。"
+    },
+    "enabled": true,
+    "source": "https://huggingface.co/thedeoxen/refcontrol-FLUX.2-klein-9B-reference-pose-lora"
+  },
+  "defaults": {
+    "steps": 8,
+    "steps_lora": 4,
+    "cfg": 1.0,
+    "sampler": "euler",
+    "scheduler": "simple",
+    "denoise": 1.0
+  },
+  "pose_atlas": {
+    "base": "",
+    "cache": "",
+    "remote": "https://hruiccc.github.io/RuiC-PoseAtlas",
+    "note": "本地 clone 优先（base 指向仓库目录，离线可用）；目录不存在时自动回落到 remote。POSE_ATLAS_BASE 环境变量优先级最高。"
+  }
+}
